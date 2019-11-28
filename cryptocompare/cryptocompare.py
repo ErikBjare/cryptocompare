@@ -1,6 +1,10 @@
 import requests
 import time
-import datetime
+import os
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # API
 URL_COIN_LIST = 'https://www.cryptocompare.com/api/data/coinlist/'
@@ -8,9 +12,9 @@ URL_PRICE = 'https://min-api.cryptocompare.com/data/pricemulti?fsyms={}&tsyms={}
 URL_PRICE_MULTI = 'https://min-api.cryptocompare.com/data/pricemulti?fsyms={}&tsyms={}'
 URL_PRICE_MULTI_FULL = 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms={}&tsyms={}'
 URL_HIST_PRICE = 'https://min-api.cryptocompare.com/data/pricehistorical?fsym={}&tsyms={}&ts={}&e={}'
-URL_HIST_PRICE_DAY = 'https://min-api.cryptocompare.com/data/histoday?fsym={}&tsym={}&limit={}'
-URL_HIST_PRICE_HOUR = 'https://min-api.cryptocompare.com/data/histohour?fsym={}&tsym={}&limit={}'
-URL_HIST_PRICE_MINUTE = 'https://min-api.cryptocompare.com/data/histominute?fsym={}&tsym={}&limit={}'
+URL_HIST_PRICE_DAY = 'https://min-api.cryptocompare.com/data/histoday?fsym={}&tsym={}&limit={}&toTs={}'
+URL_HIST_PRICE_HOUR = 'https://min-api.cryptocompare.com/data/histohour?fsym={}&tsym={}&limit={}&toTs={}'
+URL_HIST_PRICE_MINUTE = 'https://min-api.cryptocompare.com/data/histominute?fsym={}&tsym={}&limit={}&toTs={}'
 URL_AVG = 'https://min-api.cryptocompare.com/data/generateAvg?fsym={}&tsym={}&e={}'
 URL_EXCHANGES = 'https://www.cryptocompare.com/api/data/exchanges'
 
@@ -24,18 +28,23 @@ CHANGE_PERCENT = 'CHANGEPCT24HOUR'
 MARKETCAP = 'MKTCAP'
 
 # DEFAULTS
-CURR = 'EUR'
+CURR = 'USD'
 LIMIT = 1440
 ###############################################################################
 
 def query_cryptocompare(url,errorCheck=True):
     try:
+        apikey = os.getenv("CRYPTOCOMPARE_APIKEY")
+        if apikey:
+            url += f"&api_key={apikey}"
+        else:
+            logger.warning("No API key for cryptocompare found, querying without (might bump into limits).")
         response = requests.get(url).json()
     except Exception as e:
-        print('Error getting coin information. %s' % str(e))
+        logger.error(f'Error getting coin information: {e}')
         return None
     if errorCheck and (response.get('Response') == 'Error'):
-        print('[ERROR] %s' % response.get('Message'))
+        logger.error(response.get('Message'))
         return None
     return response
 
@@ -66,19 +75,29 @@ def get_price(coin, curr=CURR, full=False):
         return query_cryptocompare(URL_PRICE.format(coin, format_parameter(curr)))
 
 def get_historical_price(coin, curr=CURR, timestamp=time.time(), exchange='CCCAGG'):
-    if isinstance(timestamp, datetime.datetime):
+    if isinstance(timestamp, datetime):
         timestamp = time.mktime(timestamp.timetuple())
     return query_cryptocompare(URL_HIST_PRICE.format(coin, format_parameter(curr),
         int(timestamp), format_parameter(exchange)))
 
-def get_historical_price_day(coin, curr=CURR, limit=LIMIT):
-    return query_cryptocompare(URL_HIST_PRICE_DAY.format(coin, format_parameter(curr), limit))
 
-def get_historical_price_hour(coin, curr=CURR, limit=LIMIT):
-    return query_cryptocompare(URL_HIST_PRICE_HOUR.format(coin, format_parameter(curr), limit))
+def get_historical_price_day(coin, curr=CURR, limit=LIMIT, toTs: datetime = None):
+    if toTs is None:
+        toTs = datetime.now()
+    return query_cryptocompare(URL_HIST_PRICE_DAY.format(coin, format_parameter(curr), limit, int(toTs.timestamp())))
 
-def get_historical_price_minute(coin, curr=CURR, limit=LIMIT):
-    return query_cryptocompare(URL_HIST_PRICE_MINUTE.format(coin, format_parameter(curr), limit))
+
+def get_historical_price_hour(coin, curr=CURR, limit=LIMIT, toTs: datetime = None):
+    if toTs is None:
+        toTs = datetime.now()
+    return query_cryptocompare(URL_HIST_PRICE_HOUR.format(coin, format_parameter(curr), limit, int(toTs.timestamp())))
+
+
+def get_historical_price_minute(coin, curr=CURR, limit=LIMIT, toTs: datetime = None):
+    if toTs is None:
+        toTs = datetime.now()
+    return query_cryptocompare(URL_HIST_PRICE_MINUTE.format(coin, format_parameter(curr), limit, int(toTs.timestamp())))
+
 
 def get_avg(coin, curr=CURR, exchange='CCCAGG'):
     response = query_cryptocompare(URL_AVG.format(coin, curr, format_parameter(exchange)))
