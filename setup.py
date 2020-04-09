@@ -1,13 +1,14 @@
 from setuptools import setup
 
-with open('README.rst', encoding="utf-8") as f:
+with open('README.md', encoding="utf-8") as f:
     readme = f.read()
 
 setup(
     name='cryptocompare',
-    version='0.6.4',
+    version='0.7.0',
     description='Wrapper for CryptoCompare.com',
     long_description=readme,
+    long_description_content_type='text/markdown',
     url='https://github.com/lagerfeuer/cryptocompare',
     author='lagerfeuer',
     author_email='lukas.deutz@mailfence.com',
